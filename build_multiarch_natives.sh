@@ -17,10 +17,11 @@ if ! docker info &> /dev/null; then
 fi
 
 PROJECT_ROOT=$(pwd)
-BUILD_DIR="$PROJECT_ROOT/lib/build/libs/shared"
+BUILD_DIR="$PROJECT_ROOT/native-lib"
 
 echo "Project root: $PROJECT_ROOT"
 echo "Build directory: $BUILD_DIR"
+echo "Note: Native libraries will be saved to native-lib/ for use with jarWithPrebuiltNatives"
 echo ""
 
 # Build for each platform - using arrays instead of associative arrays for compatibility
@@ -31,6 +32,7 @@ for i in "${!DOCKER_PLATFORMS[@]}"; do
     DOCKER_PLATFORM="${DOCKER_PLATFORMS[$i]}"
     ARCH="${JAVA_ARCHS[$i]}"
     echo "=== Building for $DOCKER_PLATFORM (Java arch: $ARCH) ==="
+    echo "Note: Using GCC 7 for Ubuntu 18.04 compatibility"
 
     # Build Docker image for this platform
     echo "Building Docker image..."
@@ -63,13 +65,13 @@ done
 echo "=== Build Summary ==="
 echo ""
 echo "Native libraries have been built for:"
-echo "  - Linux x86_64 (amd64)"
-echo "  - Linux aarch64 (arm64)"
+echo "  - Linux x86_64 (amd64) - GCC 7 for Ubuntu 18.04+ compatibility"
+echo "  - Linux aarch64 (arm64) - GCC 7 for Ubuntu 18.04+ compatibility"
 echo ""
 echo "Directory structure:"
 tree "$BUILD_DIR" 2>/dev/null || find "$BUILD_DIR" -type f
 echo ""
 echo "To build a JAR with all native libraries (darwin + linux), run:"
-echo "  ./gradlew :lib:jar :lib:publishToMavenLocal"
+echo "  ./gradlew :lib:jarWithPrebuiltNatives :lib:publishToMavenLocal"
 echo ""
 echo "✓ Multi-architecture build complete!"

@@ -101,10 +101,13 @@ If you prefer to build locally (requires Docker):
 
 This will:
 1. Use Docker to cross-compile Linux libraries for x86_64 and aarch64
-2. Save them to `native-lib/` directory structure
-3. Package everything into JAR and publish to `~/.m2/repository/`
+2. Build with **GCC 7** for Ubuntu 18.04+ compatibility (GLIBCXX_3.4.25)
+3. Save them to `native-lib/` directory structure
+4. Package everything into JAR and publish to `~/.m2/repository/`
 
-**Note:** The Docker build downloads large images (~1GB+), so it's slower on slow networks.
+**Note:**
+- The Docker build downloads large images (~1GB+), so it's slower on slow networks
+- Libraries are compiled for Ubuntu 18.04+ compatibility (will work on newer systems too)
 
 ## What's Included
 
