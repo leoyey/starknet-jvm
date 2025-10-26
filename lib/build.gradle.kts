@@ -264,15 +264,8 @@ tasks.javadoc {
 publishing {
     publications {
         create<MavenPublication>("starknet") {
+            from(components["java"])
             artifactId = "starknet"
-            artifact("starknet-jar/starknet.jar")
-            artifact("starknet-aar/starknet.aar")
-            artifact("javadoc-jar/javadoc.jar") {
-                classifier="javadoc"
-            }
-            artifact("sources-jar/sources.jar"){
-                classifier="sources"
-            }
             pom {
                 name.set("starknet")
                 description.set("Starknet SDK for JVM languages")
@@ -320,18 +313,6 @@ publishing {
                     developerConnection.set("scm:git:ssh://github.com:software-mansion/starknet-jvm.git")
                     url.set("https://github.com/software-mansion/starknet-jvm/tree/main")
                 }
-                pom.withXml {
-                    val dependenciesNode = asNode().appendNode("dependencies")
-
-                    configurations["implementation"].allDependencies.forEach {
-                        if (it.group != null && it.version != null) {
-                            val dependencyNode = dependenciesNode.appendNode("dependency")
-                            dependencyNode.appendNode("groupId", it.group)
-                            dependencyNode.appendNode("artifactId", it.name)
-                            dependencyNode.appendNode("version", it.version)
-                        }
-                    }
-                }
             }
         }
     }
@@ -340,6 +321,10 @@ publishing {
 signing {
     val signingKey: String? by project
     val signingPassword: String? by project
+    setRequired({
+        // Only require signing for remote publishing (not for publishToMavenLocal)
+        gradle.taskGraph.allTasks.any { it is PublishToMavenRepository }
+    })
     useInMemoryPgpKeys(signingKey, signingPassword)
     sign(publishing.publications["starknet"])
 }

@@ -1,0 +1,194 @@
+name: Build Multi-Arch JAR
+
+on:
+  workflow_dispatch:  # Allows manual triggering from GitHub UI
+
+jobs:
+  build_darwin:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@802fa1a2c4e212495c05bf94dba2704a92a472be
+        with:
+          cmake-version: '3.18.1'
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'corretto'
+
+      - name: Build Darwin native libraries
+        run: ./gradlew buildCrypto
+
+      - name: Prepare libs to upload
+        run: |
+          mkdir -p native-libs/darwin
+          cp crypto/pedersen/build/bindings/libcrypto_jni.* native-libs/darwin/
+          cp crypto/poseidon/build/bindings/libposeidon_jni.* native-libs/darwin/
+          cp crypto/poseidon/build/poseidon/libposeidon.* native-libs/darwin/
+
+      - name: Upload Darwin libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: lib-darwin
+          path: native-libs/darwin/
+
+  build_linux_x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Setup cmake
+        uses: jwlawson/actions-setup-cmake@802fa1a2c4e212495c05bf94dba2704a92a472be
+        with:
+          cmake-version: '3.18.1'
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'corretto'
+          cache: 'gradle'
+
+      - name: Set up GCC 11
+        run: sudo apt update && sudo apt install -y g++-11
+
+      - name: Force usage of gcc 11
+        run: |
+          sudo find /usr/lib/gcc/x86_64-linux-gnu/ -maxdepth 1 -mindepth 1 ! -name 11 -exec rm -rf {} +
+          echo "CC=/usr/bin/gcc-11" >> $GITHUB_ENV
+          echo "CXX=/usr/bin/g++-11" >> $GITHUB_ENV
+
+      - name: Build Linux x86_64 native libraries
+        run: ./gradlew buildCrypto
+
+      - name: Prepare libs to upload
+        run: |
+          mkdir -p native-libs/linux/x86_64
+          cp crypto/pedersen/build/bindings/libcrypto_jni.so native-libs/linux/x86_64/
+          cp crypto/poseidon/build/bindings/libposeidon_jni.so native-libs/linux/x86_64/
+          cp crypto/poseidon/build/poseidon/libposeidon.so native-libs/linux/x86_64/
+
+      - name: Upload Linux x86_64 libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: lib-linux-x86_64
+          path: native-libs/linux/x86_64/
+
+  build_linux_aarch64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+
+      - name: Set up qemu
+        uses: docker/setup-qemu-action@v2
+        with:
+          platforms: arm64
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v2
+        with:
+          driver: docker
+
+      - name: Build Linux aarch64 native libraries
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: .github/workflows/Dockerfile.multiarch
+          platforms: linux/arm64
+          push: false
+          tags: build:latest
+
+      - name: Extract libs
+        run: |
+          container=$(docker create --platform linux/arm64 build)
+          mkdir -p native-libs/linux/aarch64
+          docker cp $container:/build/crypto/pedersen/build/bindings/libcrypto_jni.so native-libs/linux/aarch64/
+          docker cp $container:/build/crypto/poseidon/build/bindings/libposeidon_jni.so native-libs/linux/aarch64/
+          docker cp $container:/build/crypto/poseidon/build/poseidon/libposeidon.so native-libs/linux/aarch64/
+          docker rm $container
+
+      - name: Upload Linux aarch64 libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: lib-linux-aarch64
+          path: native-libs/linux/aarch64/
+
+  package_jar:
+    runs-on: ubuntu-latest
+    needs: [build_darwin, build_linux_x86_64, build_linux_aarch64]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: 11
+          distribution: 'corretto'
+          cache: 'gradle'
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Organize native libraries
+        run: |
+          mkdir -p lib/build/libs/shared/darwin
+          mkdir -p lib/build/libs/shared/linux/x86_64
+          mkdir -p lib/build/libs/shared/linux/aarch64
+
+          cp -r artifacts/lib-darwin/* lib/build/libs/shared/darwin/
+          cp -r artifacts/lib-linux-x86_64/* lib/build/libs/shared/linux/x86_64/
+          cp -r artifacts/lib-linux-aarch64/* lib/build/libs/shared/linux/aarch64/
+
+          echo "=== Native library structure ==="
+          find lib/build/libs/shared -type f
+
+      - name: Build JAR with all native libraries
+        run: ./gradlew lib:jar
+
+      - name: List built artifacts
+        run: ls -lah lib/build/libs/
+
+      - name: Upload multi-arch JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: starknet-multiarch-jar
+          path: lib/build/libs/lib-*.jar
+          retention-days: 30
+
+      - name: Create summary
+        run: |
+          echo "## Multi-Architecture JAR Build Complete! 🎉" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Native Libraries Included:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ macOS (darwin) - Universal binary (x86_64 + arm64)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Linux x86_64" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Linux aarch64" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### JAR Structure:" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          jar tf lib/build/libs/lib-*.jar | grep -E "darwin/|linux/" | sort >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Installation Instructions:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download the JAR artifact from this workflow run" >> $GITHUB_STEP_SUMMARY
+          echo "2. Extract the zip file" >> $GITHUB_STEP_SUMMARY
+          echo "3. Install to local Maven:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "mvn install:install-file \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -Dfile=lib-0.16.1.jar \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -DgroupId=com.swmansion.starknet \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -DartifactId=starknet \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -Dversion=0.16.1 \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -Dpackaging=jar" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
