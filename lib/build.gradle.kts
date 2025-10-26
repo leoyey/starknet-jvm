@@ -220,6 +220,44 @@ val jarWithNative = task("jarWithNative") {
     finalizedBy(tasks.jar)
 }
 
+val copyPrebuiltNatives = task("copyPrebuiltNatives") {
+    doLast {
+        val sourceDir = file("${rootDir}/native-lib")
+        val targetDir = file("${buildDir}/libs/shared")
+
+        if (!sourceDir.exists()) {
+            throw GradleException("Native libraries directory not found: ${sourceDir.absolutePath}")
+        }
+
+        println("Copying pre-built native libraries from ${sourceDir.absolutePath}")
+
+        // Clean target directory
+        delete(targetDir)
+
+        // Copy all native libraries
+        copy {
+            from(sourceDir)
+            into(targetDir)
+        }
+
+        println("Native libraries copied successfully:")
+        fileTree(targetDir).visit {
+            if (!isDirectory) {
+                println("  ${relativePath}")
+            }
+        }
+    }
+}
+
+val jarWithPrebuiltNatives = task("jarWithPrebuiltNatives") {
+    dependsOn(copyPrebuiltNatives)
+    finalizedBy(tasks.jar)
+
+    doLast {
+        println("JAR built with pre-built native libraries for all platforms")
+    }
+}
+
 dependencies {
     // Align versions of all Kotlin components
     implementation(platform("org.jetbrains.kotlin:kotlin-bom"))

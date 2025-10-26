@@ -22,8 +22,12 @@ Development requires:
 # Standard build
 ./gradlew build
 
-# Build with native crypto libraries included
+# Build with native crypto libraries included (builds for current platform only)
 ./gradlew jarWithNative
+
+# Build JAR with pre-built native libraries (all platforms)
+# Requires native-lib/ directory with darwin/, linux/x86_64/, linux/aarch64/
+./gradlew :lib:jarWithPrebuiltNatives :lib:publishToMavenLocal
 
 # Clean build artifacts
 ./gradlew clean

@@ -186,9 +186,9 @@ jobs:
           echo "3. Install to local Maven:" >> $GITHUB_STEP_SUMMARY
           echo '```bash' >> $GITHUB_STEP_SUMMARY
           echo "mvn install:install-file \\" >> $GITHUB_STEP_SUMMARY
-          echo "  -Dfile=lib-0.16.1.jar \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -Dfile=lib-0.16.1-multiarch.jar \\" >> $GITHUB_STEP_SUMMARY
           echo "  -DgroupId=com.swmansion.starknet \\" >> $GITHUB_STEP_SUMMARY
           echo "  -DartifactId=starknet \\" >> $GITHUB_STEP_SUMMARY
-          echo "  -Dversion=0.16.1 \\" >> $GITHUB_STEP_SUMMARY
+          echo "  -Dversion=0.16.1-multiarch \\" >> $GITHUB_STEP_SUMMARY
           echo "  -Dpackaging=jar" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY

@@ -41,10 +41,10 @@ If you have a slow network connection, use GitHub Actions to build the JAR remot
 6. **Install to local Maven:**
    ```bash
    mvn install:install-file \
-     -Dfile=lib-0.16.1.jar \
+     -Dfile=lib-0.16.1-multiarch.jar \
      -DgroupId=com.swmansion.starknet \
      -DartifactId=starknet \
-     -Dversion=0.16.1 \
+     -Dversion=0.16.1-multiarch \
      -Dpackaging=jar
    ```
 
@@ -53,11 +53,41 @@ If you have a slow network connection, use GitHub Actions to build the JAR remot
    <dependency>
        <groupId>com.swmansion.starknet</groupId>
        <artifactId>starknet</artifactId>
-       <version>0.16.1</version>
+       <version>0.16.1-multiarch</version>
    </dependency>
    ```
 
-## Alternative: Local Build with Docker
+## Alternative 1: Use Pre-Built Native Libraries
+
+If you already have all native libraries built (in `native-lib/` directory):
+
+```bash
+./gradlew :lib:jarWithPrebuiltNatives :lib:publishToMavenLocal
+```
+
+This will:
+1. Copy native libraries from `native-lib/` directory
+2. Package them into the JAR
+3. Publish to `~/.m2/repository/`
+
+**Requirements:** `native-lib/` directory structure:
+```
+native-lib/
+├── darwin/
+│   ├── libcrypto_jni.dylib
+│   ├── libposeidon_jni.dylib
+│   └── libposeidon.dylib
+├── linux/x86_64/
+│   ├── libcrypto_jni.so
+│   ├── libposeidon_jni.so
+│   └── libposeidon.so
+└── linux/aarch64/
+    ├── libcrypto_jni.so
+    ├── libposeidon_jni.so
+    └── libposeidon.so
+```
+
+## Alternative 2: Local Build with Docker
 
 If you prefer to build locally (requires Docker):
 
@@ -66,13 +96,13 @@ If you prefer to build locally (requires Docker):
 ./build_multiarch_natives.sh
 
 # Package JAR with all platforms
-./gradlew :lib:jar :lib:publishToMavenLocal
+./gradlew :lib:jarWithPrebuiltNatives :lib:publishToMavenLocal
 ```
 
 This will:
 1. Use Docker to cross-compile Linux libraries for x86_64 and aarch64
-2. Combine them with your locally-built Darwin libraries
-3. Publish to `~/.m2/repository/`
+2. Save them to `native-lib/` directory structure
+3. Package everything into JAR and publish to `~/.m2/repository/`
 
 **Note:** The Docker build downloads large images (~1GB+), so it's slower on slow networks.
 

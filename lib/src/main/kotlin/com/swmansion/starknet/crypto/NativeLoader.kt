@@ -17,7 +17,19 @@ internal object NativeLoader {
     }
 
     private val architecture: String by lazy {
-        System.getProperty("os.arch")
+        normalizeArchitecture(System.getProperty("os.arch"))
+    }
+
+    /**
+     * Normalize architecture names to match the directory structure in the JAR.
+     * Different JVM implementations report different arch names for the same platform.
+     */
+    private fun normalizeArchitecture(arch: String): String {
+        return when (arch.lowercase(Locale.ENGLISH)) {
+            "amd64", "x86_64", "x64" -> "x86_64"  // Intel/AMD 64-bit
+            "arm64", "aarch64" -> "aarch64"        // ARM 64-bit
+            else -> arch  // Pass through unknown architectures
+        }
     }
 
     fun load(name: String) = load(name, operatingSystem, architecture)
