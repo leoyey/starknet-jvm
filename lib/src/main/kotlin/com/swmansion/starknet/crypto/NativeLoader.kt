@@ -26,9 +26,9 @@ internal object NativeLoader {
      */
     private fun normalizeArchitecture(arch: String): String {
         return when (arch.lowercase(Locale.ENGLISH)) {
-            "amd64", "x86_64", "x64" -> "x86_64"  // Intel/AMD 64-bit
-            "arm64", "aarch64" -> "aarch64"        // ARM 64-bit
-            else -> arch  // Pass through unknown architectures
+            "amd64", "x86_64", "x64" -> "x86_64" // Intel/AMD 64-bit
+            "arm64", "aarch64" -> "aarch64" // ARM 64-bit
+            else -> arch // Pass through unknown architectures
         }
     }
 
