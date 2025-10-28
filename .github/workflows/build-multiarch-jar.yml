@@ -39,42 +39,34 @@ jobs:
           path: native-libs/darwin/
 
   build_linux_x86_64:
-    runs-on: ubuntu-20.04  # Use Ubuntu 20.04 for better compatibility with older systems
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
 
-      - name: Setup cmake
-        uses: jwlawson/actions-setup-cmake@802fa1a2c4e212495c05bf94dba2704a92a472be
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v2
         with:
-          cmake-version: '3.18.1'
+          driver: docker
 
-      - name: Set up Java
-        uses: actions/setup-java@v3
+      - name: Build Linux x86_64 native libraries (GCC 7 for Ubuntu 18.04 compatibility)
+        uses: docker/build-push-action@v3
         with:
-          java-version: 11
-          distribution: 'corretto'
-          cache: 'gradle'
+          context: .
+          file: .github/workflows/Dockerfile.multiarch
+          platforms: linux/amd64
+          push: false
+          tags: build:latest
 
-      - name: Set up GCC 7 (for Ubuntu 18.04 compatibility)
-        run: sudo apt update && sudo apt install -y g++-7
-
-      - name: Force usage of gcc 7
+      - name: Extract libs
         run: |
-          sudo find /usr/lib/gcc/x86_64-linux-gnu/ -maxdepth 1 -mindepth 1 ! -name 7 -exec rm -rf {} +
-          echo "CC=/usr/bin/gcc-7" >> $GITHUB_ENV
-          echo "CXX=/usr/bin/g++-7" >> $GITHUB_ENV
-
-      - name: Build Linux x86_64 native libraries
-        run: ./gradlew buildCrypto
-
-      - name: Prepare libs to upload
-        run: |
+          container=$(docker create --platform linux/amd64 build)
           mkdir -p native-libs/linux/x86_64
-          cp crypto/pedersen/build/bindings/libcrypto_jni.so native-libs/linux/x86_64/
-          cp crypto/poseidon/build/bindings/libposeidon_jni.so native-libs/linux/x86_64/
-          cp crypto/poseidon/build/poseidon/libposeidon.so native-libs/linux/x86_64/
+          docker cp $container:/build/crypto/pedersen/build/bindings/libcrypto_jni.so native-libs/linux/x86_64/
+          docker cp $container:/build/crypto/poseidon/build/bindings/libposeidon_jni.so native-libs/linux/x86_64/
+          docker cp $container:/build/crypto/poseidon/build/poseidon/libposeidon.so native-libs/linux/x86_64/
+          docker rm $container
 
       - name: Upload Linux x86_64 libraries
         uses: actions/upload-artifact@v4
